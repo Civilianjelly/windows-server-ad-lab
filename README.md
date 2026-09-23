@@ -21,7 +21,7 @@ This was a simulation of a small company's network with separate departments. I 
 
 ## Installing the VM
 
-![Windows software license error](Windows%20software%20license%20error.png)
+![Windows software license error](images/Windows%20software%20license%20error.png)
 To start with it keeps giving me an error saying it does not have the licensing terms. I'm thinking I either do not have the free evaluation version or the file is corrupted. I also read that this could have something to do with the way the vm boots and that removing the floppy disk was a fix for some people. 
 
 I'm going to try these solutions and see how it goes:
@@ -32,7 +32,7 @@ I'm going to try these solutions and see how it goes:
 
 After booting up the vm I was greeted by the server manager window which I was very familiar with from my labs studying for CompTIA however just in case I ran winver to confirm I was running the right version. Which I was.
 
-![Windows server 2022 confirmation](Windows%20server%202022%20confirmation.png)
+![Windows server 2022 confirmation](images/Windows%20server%202022%20confirmation.png)
 
 There is a countdown in the corner of the screen for when my trial version runs out but I will look into how to extend it later if I need to.
 
@@ -42,13 +42,13 @@ There is a countdown in the corner of the screen for when my trial version runs 
 
 First thing I'm going to do is rename the pc so its easy to identify when looking at other stuff. WIN-Controller-1 will be the new name. When I restart to change the name it asks for a reason which makes sense since servers usually run constantly but I wonder where it logs the shutdown reason stated? 
 
-![New win name confirm](New%20win%20name%20confirm.png)
+![New win name confirm](images/New%20win%20name%20confirm.png)
 *New name confirmation*
 
 
 Looking into this afterwards, I found that Windows logs shutdown reasons in Event Viewer under Windows Logs > System, as Event ID 1074 from the source User32. Filtering the System log for 1074, I found the entry for this restart. It shows the server's old name (WIN-7BMO8DUU9DC), the process that started the restart (the Settings app), the user, and the reason I selected, "Other (Planned)".
 
-![Event ID 1074 for the rename restart](Pasted%20image%2020260923202350.png)
+![Event ID 1074 for the rename restart](images/Pasted%20image%2020260923202350.png)
 
 While checking these logs, I also noticed the server's name appears as WIN-CONTROLLER- in some entries. NetBIOS names are limited to 15 characters, and WIN-Controller-1 is 16, so the last character gets cut off. It hasn't caused any problems in the lab, but in a real network I would keep server names to 15 characters or fewer.
 
@@ -56,16 +56,16 @@ While checking these logs, I also noticed the server's name appears as WIN-CONTR
 After installing active directory I need to name my new forest I think I will call it HLBholdings. I have yet to set up other vms for a multi user simulation however for now I will lay the groundwork and group policy for when I add the other machines. For the OU(organisational unit) I will make one for England and have each team within this OU for the sake of segmentation.
 
 In my company structure I currently have 3 defined teams so I will make OUs for all of these teams.
-![OU showcase beginning](OU%20showcase%20beginning.png)
+![OU showcase beginning](images/OU%20showcase%20beginning.png)
 Now I need to add accounts to each of these OUs belonging to the fake employees I have created.
-![Accounts in the IT OU](IT%20team%20OU%20accs.png)
+![Accounts in the IT OU](images/IT%20team%20OU%20accs.png)
 *Example of accounts in OU*
 
 All of them currently use a company default password but on next login they will be forced to make a new password. I will also add a security group into each OU that contains all the members of that team. Later I will use this to have specific resources only accessible to specific teams.
-![HR security group members](HR%20security%20group%20members.png)
+![HR security group members](images/HR%20security%20group%20members.png)
 All of the groups are domain local groups just to keep the scope small and not interfere with any other project I startup. 
 
-![Sign-in denied on the domain controller](Sign%20in%20method%20denied.png)
+![Sign-in denied on the domain controller](images/Sign%20in%20method%20denied.png)
 I think the problem here is I'm trying to log in on the Domain controller which is a security risk. Rather than allow the log in which wouldn't be advised from a security standpoint I will setup another machine to act as the client machine.
 
 
@@ -73,35 +73,35 @@ I think the problem here is I'm trying to log in on the Domain controller which 
 ## Configuring Client machine and joining domain
 
 To test this section I needed a new machine to simulate the clients so I got a windows enterprise evaluation edition
-![Windows 11 enterprise evaluation](Windows%2011%20enterprise%20evaluation.png)
+![Windows 11 enterprise evaluation](images/Windows%2011%20enterprise%20evaluation.png)
 
 Trying to join the computer to the domain came up with this.
-![Domain join error](Domain%20join%20error.png)
-![Ping test domain](Ping%20test%20domain.png)
+![Domain join error](images/Domain%20join%20error.png)
+![Ping test domain](images/Ping%20test%20domain.png)
 Pinging the domain also came up with nothing.
 
 To make things easier I have given the domain controller a static IP address and set the client's to use the domain controller as a dns server.
-![Inter vm ping test fail](Inter%20vm%20ping%20test%20fail.png)
+![Inter vm ping test fail](images/Inter%20vm%20ping%20test%20fail.png)
 To see if the vms could even interact I used the enterprise system to ping the domain controller and came up with nothing which solidifies the issue not necessarily being with the domain itself.
 
 Switching the adapter the vms used resulted in them both losing internet access. Instead of using a bridged adapter I will try to use the host only adapter and see if that fares better. This solution also failed with the ping just being unable to transmit.
 
-![Inter_vm ping success](Inter_vm%20ping%20success.png)
-![Inter_vm ping success 2](Inter_vm%20ping%20success%202.png)
+![Inter_vm ping success](images/Inter_vm%20ping%20success.png)
+![Inter_vm ping success 2](images/Inter_vm%20ping%20success%202.png)
 After setting the network to internal, making sure both VMs were on the same internal network and changing the client's inbound firewall rules to allow pinging, I got them to ping each other. However, pinging the domain name still failed. Since pinging the IP address works but the name doesn't, this points to a DNS problem rather than a connection problem.
 
 VirtualBox's internal network has no DHCP server, so neither machine is getting an IP address automatically. Joining a domain also depends on DNS, as the client has to look up HLBholdings.local, and only the domain controller's DNS server knows about it. To fix this, I'm going to give both machines static IP addresses on the same subnet (192.254.83.47 for the domain controller and 192.254.199.236 for the client, both with a 255.255.0.0 mask). I'll set the client's DNS server to the domain controller's IP and leave the domain controller pointing to itself (127.0.0.1). After making these changes, the client could ping HLBholdings.local, and I successfully joined it to the domain.
 
-![Domain controller ipconfig output|589](Pasted%20image%2020260923200403.png)
+![Domain controller ipconfig output|589](images/Pasted%20image%2020260923200403.png)
 *Domain controller ipconfig*
 
-![Client ipconfig output|591](Pasted%20image%2020260923200411.png)
+![Client ipconfig output|591](images/Pasted%20image%2020260923200411.png)
 *Client ipconfig*
 
 Looking back at these settings, 192.254.x.x isn't a private IP range, and the domain controller's default gateway was set to 127.0.0.1, which isn't valid. This worked because the network was fully isolated, but in a real network I would use a private range such as 192.168.x.x and leave the gateway blank when there's no router.
 
 I have successfully logged into David's account.
-![David one account](David%20one%20account.png)
+![David one account](images/David%20one%20account.png)
 
 I have set a simple password for now however next I will make group policies to mandate password complexity and apply it to all the departments.
 
@@ -117,39 +117,39 @@ To start with I'm going to make a quick list of GPOs and other settings I want t
 ### Password complexity
 
 I will start with password complexity as that should be applied to the England OU to cover all departments. 
-![Password complexity gpo](Password%20complexity%20GPO.png)
+![Password complexity gpo](images/Password%20complexity%20GPO.png)
 For this I just turned the complexity requirements on and made min length 7. After that I ran gpupdate to make sure the changes take effect
-![Pass  complexity](Pass%20%20complexity.png)
+![Pass  complexity](images/Pass%20%20complexity.png)
 Since I don't want anything to override this I also decided to enforce this policy. Now I need to test whether it has worked or not. I will try cake12, which should be rejected if the policy is working. It was rejected with an error saying it did not meet the requirements.
 
-![Pass complexity error](Pass%20complexity%20error.png)
+![Pass complexity error](images/Pass%20complexity%20error.png)
 
 At first I took this as proof that it worked but upon running `Get-ADDefaultDomainPasswordPolicy` I realised that the default domain policy already required a minimum of 7 and complexity. 
-![Default domain password policy](Pasted%20image%2020260923185517.png)
+![Default domain password policy](images/Pasted%20image%2020260923185517.png)
 
 To test whether my GPO is actually doing anything, I'm going to change its minimum length to 12 and reset Fatima's password to a 9-character password. If my GPO is working, the password should be rejected. The password was accepted, and the domain policy still showed a minimum of 7. The problem is that the domain controller doesn't use password settings from OU-linked GPOs for domain accounts. It only takes them from GPOs linked at the domain level. 
 
 To fix this, I'm going to link the password complexity GPO to HLBholdings.local, set its link order to 1 so it takes priority over the Default Domain Policy, and remove the old link from the England OU. Re-running `Get-ADDefaultDomainPasswordPolicy` afterwards confirmed the change went through.
 
-![Domain password policy after linking the GPO](Pasted%20image%2020260923194208.png)
+![Domain password policy after linking the GPO](images/Pasted%20image%2020260923194208.png)
 
 For one final test, I'm going to reset Fatima's password to Coffee42x, which meets the default domain policy but is shorter than my new minimum of 12.
 
-![Password reset rejected for being too short](Pasted%20image%2020260923194636.png)
+![Password reset rejected for being too short](images/Pasted%20image%2020260923194636.png)
 
 The password was rejected, which proves my change came into effect and my new policy is in use.
 
 ### Department wallpapers
 
 The first thing I need to do is share the folder for wallpapers to which I will only give read access for the 3 departments. 
-![Wallpaper share permissions](Wallpaper%20share%20delete.png)
+![Wallpaper share permissions](images/Wallpaper%20share%20delete.png)
 
 While changing permissions for the shared folders I accidently completely denied access to the sysvol folder leading to the client not being able to read the new group policy and subsequently not changing wallpaper. I realised this after running gpupdate on the client computer and it failing due to not having read access to the sysvol folder.
 
 To fix it, I went back to the SYSVOL permissions and removed the Deny entry I had added, which restored read access. After that, gpupdate on the client ran successfully. I didn't record exactly which permission I had changed at the time, but the lesson was clear: in Windows, an explicit Deny overrides any Allow, so a single Deny entry can block access even when other permissions grant it. Since then, I've been more careful to check which folder I'm editing, and to use Deny sparingly.
 
 Then I need to create a wallpaper hr GPO and copy the path to the wallpaper I want the hr team to have. After a gpupdate the hr teams accounts should have the correct wallpaper which it does.
-![HR wallpaper applied|439](HR%20wallpaper.png)
+![HR wallpaper applied|439](images/HR%20wallpaper.png)
 Next I will do this for the rest of the teams.
 
 The rest were done smoothly with a small blip due to the last file being png and I entered it as a jpg file. 
@@ -157,13 +157,13 @@ The rest were done smoothly with a small blip due to the last file being png and
 ### Department shared folders
 
 Last thing to do for this section is to setup shared folders for departments. To start I'm going to make a root folder called Company folders and share it. Going to server manager > shares I can enable Access-based enumeration which will make it so that anyone without read permission for the folders in the share will not be able to see it. I will disable inheritance on the company folders then make a resources folder for each department and disable inheritance on them aswell. After removing authenticated users from the permissions panel and using the security groups I made to apply permissions for each folder.
-![Hr resources permissions](Hr%20resources%20permissions.png)
+![Hr resources permissions](images/Hr%20resources%20permissions.png)
 Here is an example where I gave the hr team permissions to modify the folder but not delete the base folder to avoid complications.
 
-![resources folders](resources%20folders.png)
+![resources folders](images/resources%20folders.png)
 Despite all of these folders being under the company resources share if we look from Fatima's account we will only see the HR folder as she is part of the hr security group and no others.
 
-![HR share](HR%20share.png)
+![HR share](images/HR%20share.png)
 
 Now I will go and do the same for the rest after which this section will be done. While doing this I encountered a problem that users could not make or delete folders within their resources folder. After using effective access via NTFS to see what was limiting their ability I found that the share permissions needed to be altered, so I gave change permission on a share level to authenticated users and assigned permissions per folder. Doing this Fatima can create folders and files as well as delete them but not delete the HR resources folder itself.
 
